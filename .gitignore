@@ -1,0 +1,32 @@
+# ──────────────────────────────────────
+# Omnisage .gitignore
+# ──────────────────────────────────────
+
+# ── Node / Frontend ──
+node_modules/
+dist/
+.node/
+
+# ── Python / Backend ──
+__pycache__/
+*.pyc
+*.pyo
+backend/venv/
+backend/uploads/
+
+# ── Database ──
+*.db
+*.sqlite3
+
+# ── OS / IDE ──
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Environment ──
+.env
+.env.local
+.env.*.local
