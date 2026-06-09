@@ -20,6 +20,8 @@ import RecordsPage      from './pages/RecordsPage';
 import AnalyticsPage    from './pages/AnalyticsPage';
 import UploadPage       from './pages/UploadPage';
 import SharePage        from './pages/SharePage';
+import ChatPage         from './pages/ChatPage';
+import SearchPage       from './pages/SearchPage';
 import RecordDetailModal from './components/RecordDetailModal';
 import HealthTimeline   from './components/HealthTimeline';
 
@@ -147,6 +149,10 @@ export default function App() {
         return <UploadPage onUploadSuccess={handleUploadSuccess} />;
       case 'share':
         return <SharePage records={records} />;
+      case 'search':
+        return <SearchPage records={records} onRecordSelect={setSelectedRecord} />;
+      case 'chat':
+        return <ChatPage />;
       default:
         return null;
     }

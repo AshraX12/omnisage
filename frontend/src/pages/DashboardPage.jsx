@@ -7,7 +7,7 @@
  * latest-vitals snapshot grid.
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ClipboardList,
   Activity,
@@ -21,7 +21,12 @@ import {
   ChevronRight,
   TrendingUp,
   ShieldCheck,
+  Dumbbell,
+  Apple,
+  Stethoscope,
+  RefreshCw,
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 /** Shared category → color mapping used across tabs */
 const CATEGORY_STYLE = {
@@ -50,6 +55,54 @@ const CATEGORY_ICON = {
  * @returns {JSX.Element}
  */
 export default function DashboardPage({ records, loading, onRecordSelect, onTabChange }) {
+  /* ── Recommendations state ─────────────────────── */
+  const [recommendations, setRecommendations] = useState([]);
+  const [recsLoading, setRecsLoading] = useState(false);
+
+  /** Category icon/color mapping for recommendation cards */
+  const REC_CATEGORIES = {
+    lifestyle:  { icon: Heart,       color: '#f472b6', bg: 'rgba(244,114,182,0.10)' },
+    exercise:   { icon: Dumbbell,    color: '#34d399', bg: 'rgba(52,211,153,0.10)' },
+    diet:       { icon: Apple,       color: '#fbbf24', bg: 'rgba(251,191,36,0.10)' },
+    screening:  { icon: Stethoscope, color: '#60a5fa', bg: 'rgba(96,165,250,0.10)' },
+    followup:   { icon: Calendar,    color: '#a78bfa', bg: 'rgba(167,139,250,0.10)' },
+  };
+
+  /** Load recommendations on mount. */
+  useEffect(() => {
+    loadRecommendations();
+  }, []);
+
+  /**
+   * Fetches AI health recommendations from the API.
+   */
+  const loadRecommendations = async () => {
+    setRecsLoading(true);
+    try {
+      const data = await apiService.getRecommendations();
+      setRecommendations(data);
+    } catch (err) {
+      console.error('Failed to load recommendations:', err);
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
+  /**
+   * Regenerates recommendations and refreshes the list.
+   */
+  const handleRefreshRecs = async () => {
+    setRecsLoading(true);
+    try {
+      const data = await apiService.regenerateRecommendations();
+      setRecommendations(data);
+    } catch (err) {
+      console.error('Failed to regenerate recommendations:', err);
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
   /* ── Computed stats ─────────────────────────────── */
   const totalRecords      = records.length;
   const allDiagnoses      = [...new Set(records.flatMap(r => r.diagnoses))];
@@ -247,6 +300,73 @@ export default function DashboardPage({ records, loading, onRecordSelect, onTabC
         </section>
 
       </div>
+
+      {/* ── AI Health Recommendations ────────────────── */}
+      <section className="recs-section" style={{ marginTop: '24px' }}>
+        <div className="section-header">
+          <h2 className="section-title">
+            <Sparkles className="h-4 w-4 inline mr-1" style={{ color: 'hsl(215,90%,60%)' }} />
+            AI Health Recommendations
+          </h2>
+          <button
+            onClick={handleRefreshRecs}
+            className="section-link"
+            disabled={recsLoading}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${recsLoading ? 'animate-spin' : ''}`} />
+            {recsLoading ? 'Generating...' : 'Refresh'}
+          </button>
+        </div>
+
+        {recsLoading ? (
+          <div className="page-loading" style={{ padding: '40px 0' }}>
+            <div className="spinner" />
+            <p>Analyzing your health records...</p>
+          </div>
+        ) : recommendations.length === 0 ? (
+          <div className="empty-state" style={{ padding: '40px 0' }}>
+            <Sparkles className="h-10 w-10" style={{ color: '#334155' }} />
+            <p className="empty-state-title">No recommendations yet</p>
+            <p className="empty-state-sub">
+              Upload medical records and click Refresh to generate personalized health advice.
+            </p>
+          </div>
+        ) : (
+          <div className="recs-grid">
+            {recommendations.map(rec => {
+              const catInfo = REC_CATEGORIES[rec.category] || REC_CATEGORIES.lifestyle;
+              const CatIcon = catInfo.icon;
+              const confClass = rec.confidence >= 0.7 ? 'rec-confidence-fill--high'
+                : rec.confidence >= 0.4 ? 'rec-confidence-fill--medium'
+                : 'rec-confidence-fill--low';
+              return (
+                <div key={rec.id} className="rec-card">
+                  <div className="rec-card-header">
+                    <div className="rec-card-icon" style={{ background: catInfo.bg, color: catInfo.color }}>
+                      <CatIcon className="h-4 w-4" />
+                    </div>
+                    <span className="rec-card-category" style={{ color: catInfo.color, background: catInfo.bg }}>
+                      {rec.category}
+                    </span>
+                  </div>
+                  <p className="rec-card-title">{rec.title}</p>
+                  <p className="rec-card-desc">{rec.description}</p>
+                  <div className="rec-confidence-bar">
+                    <div
+                      className={`rec-confidence-fill ${confClass}`}
+                      style={{ width: `${Math.round(rec.confidence * 100)}%` }}
+                    />
+                  </div>
+                  <p className="rec-sources">
+                    Confidence: {Math.round(rec.confidence * 100)}%
+                    {rec.source_records?.length > 0 && ` · Based on ${rec.source_records.length} records`}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -258,3 +378,5 @@ function getTimeGreeting() {
   if (h < 17) return 'Afternoon';
   return 'Evening';
 }
+
+

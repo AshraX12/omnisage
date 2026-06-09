@@ -119,4 +119,113 @@ export const apiService = {
   getFileUrl: (id) => {
     return `${BASE_URL}/records/${id}/file`;
   },
+
+  /* ── AI Summarization ──────────────────────────── */
+
+  /**
+   * Generates an AI summary for a specific record.
+   *
+   * @param {number} recordId - Record identifier.
+   * @returns {Promise<Object>} The generated summary.
+   */
+  generateSummary: async (recordId) => {
+    const response = await api.post(`/ai/summarize/${recordId}`);
+    return response.data;
+  },
+
+  /**
+   * Retrieves an existing AI summary for a record.
+   *
+   * @param {number} recordId - Record identifier.
+   * @returns {Promise<Object>} The stored summary.
+   */
+  getSummary: async (recordId) => {
+    const response = await api.get(`/ai/summary/${recordId}`);
+    return response.data;
+  },
+
+  /* ── AI Chat ───────────────────────────────────── */
+
+  /**
+   * Sends a message to the AI chat assistant.
+   *
+   * @param {string|null} conversationId - Existing conversation ID or null for new.
+   * @param {string} message - The user message text.
+   * @returns {Promise<Object>} The assistant response with conversation_id, message, and citations.
+   */
+  sendChatMessage: async (conversationId, message) => {
+    const response = await api.post('/ai/chat', {
+      conversation_id: conversationId || undefined,
+      message: message,
+    });
+    return response.data;
+  },
+
+  /**
+   * Fetches all chat conversations.
+   *
+   * @returns {Promise<Array>} List of conversations.
+   */
+  getConversations: async () => {
+    const response = await api.get('/ai/chat/conversations');
+    return response.data;
+  },
+
+  /**
+   * Fetches a single conversation with all messages.
+   *
+   * @param {string} id - Conversation identifier.
+   * @returns {Promise<Object>} Full conversation with messages.
+   */
+  getConversation: async (id) => {
+    const response = await api.get(`/ai/chat/conversations/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Deletes a chat conversation.
+   *
+   * @param {string} id - Conversation identifier.
+   * @returns {Promise<Object>} Success confirmation.
+   */
+  deleteConversation: async (id) => {
+    const response = await api.delete(`/ai/chat/conversations/${id}`);
+    return response.data;
+  },
+
+  /* ── Recommendations ───────────────────────────── */
+
+  /**
+   * Fetches AI-generated health recommendations.
+   *
+   * @returns {Promise<Array>} List of recommendation objects.
+   */
+  getRecommendations: async () => {
+    const response = await api.get('/ai/recommendations');
+    return response.data;
+  },
+
+  /**
+   * Regenerates health recommendations from all records.
+   *
+   * @returns {Promise<Array>} Freshly generated recommendations.
+   */
+  regenerateRecommendations: async () => {
+    const response = await api.post('/ai/recommendations/generate');
+    return response.data;
+  },
+
+  /* ── Semantic Search ────────────────────────────── */
+
+  /**
+   * Performs semantic search across medical records.
+   *
+   * @param {string} query - Natural language search query.
+   * @param {Object} filters - Optional filters (date_from, date_to, category, doctor).
+   * @returns {Promise<Array>} Matching record chunks with similarity scores.
+   */
+  semanticSearch: async (query, filters = {}) => {
+    const response = await api.post('/ai/search', { query, ...filters });
+    return response.data;
+  },
 };

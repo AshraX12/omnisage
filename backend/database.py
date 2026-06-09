@@ -2,16 +2,20 @@
 Database Module for Omnisage Medical Record Aggregator.
 
 This module initializes the SQLAlchemy database engine, creates the sessionmaker,
-provides the declarative base class for model mapping, and exposes a dependency
-generator for retrieving active database sessions.
+provides the declarative base class for model mapping, exposes a dependency
+generator for retrieving active database sessions, and initializes the pgvector
+extension when connected to PostgreSQL.
 """
 
 import sys
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from backend.config import settings
+
+# Track which database backend is active
+_using_postgres = False
 
 # Attempt to create the engine and check the connection
 try:
@@ -22,6 +26,7 @@ try:
     # Test connection liveness
     with engine.connect() as conn:
         pass
+    _using_postgres = True
     print("Successfully connected to PostgreSQL database.")
 except (OperationalError, Exception) as e:
     print(f"WARNING: Database connection failed (DATABASE_URL={settings.DATABASE_URL}). Details: {e}", file=sys.stderr)
@@ -30,6 +35,16 @@ except (OperationalError, Exception) as e:
         "sqlite:///./omnisage.db",
         connect_args={"check_same_thread": False}  # Required for SQLite multi-threading
     )
+
+# Attempt to initialize pgvector extension (optional — AI features use Python-side cosine similarity)
+if _using_postgres:
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+        print("pgvector extension enabled (optional optimization).")
+    except Exception as e:
+        print(f"NOTE: pgvector extension not available (this is OK — AI features use Python-side similarity).")
 
 # Bind sessionmaker to the resolved engine
 SessionLocal = sessionmaker(
@@ -40,6 +55,16 @@ SessionLocal = sessionmaker(
 
 # Declarative base class for SQLAlchemy model definitions
 Base = declarative_base()
+
+
+def is_postgres() -> bool:
+    """
+    Returns True if the app is connected to PostgreSQL (required for AI features).
+
+    Returns:
+        bool: Whether PostgreSQL is the active database backend.
+    """
+    return _using_postgres
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -14,6 +14,8 @@ import {
   TrendingUp,
   Upload,
   Share2,
+  Search,
+  MessageSquare,
   Heart,
   User,
 } from 'lucide-react';
@@ -21,10 +23,12 @@ import {
 /** Navigation tab definitions */
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard',  icon: LayoutDashboard },
+  { id: 'search',    label: 'Search',     icon: Search          },
   { id: 'records',   label: 'Records',    icon: ClipboardList   },
   { id: 'analytics', label: 'Analytics',  icon: TrendingUp      },
   { id: 'upload',    label: 'Upload',     icon: Upload          },
   { id: 'share',     label: 'Share',      icon: Share2          },
+  { id: 'chat',      label: 'AI Chat',    icon: MessageSquare   },
 ];
 
 /**

@@ -7,8 +7,8 @@
  * If the record is a DICOM scan, mounts the DicomViewer component.
  */
 
-import React, { useState } from 'react';
-import { X, Calendar, User, FileText, Plus, Info, HelpCircle, Save, Trash2, Heart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, User, FileText, Plus, Info, HelpCircle, Save, Trash2, Heart, Sparkles, RefreshCw, Loader2 } from 'lucide-react';
 import DicomViewer from './DicomViewer';
 import { apiService } from '../services/apiService';
 
@@ -39,6 +39,45 @@ export default function RecordDetailModal({ record, onClose, onUpdate }) {
   const [activeTab, setActiveTab] = useState('summary');
   const [isEditing, setIsEditing] = useState(false);
   const [glossaryTerm, setGlossaryTerm] = useState(null);
+
+  // AI Summary state
+  const [aiSummary, setAiSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(null);
+
+  // Load AI summary when AI Summary tab is selected
+  useEffect(() => {
+    if (activeTab === 'ai-summary') {
+      loadAiSummary();
+    }
+  }, [activeTab, record.id]);
+
+  const loadAiSummary = async () => {
+    try {
+      const data = await apiService.getSummary(record.id);
+      setAiSummary(data);
+      setSummaryError(null);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setAiSummary(null); // No summary yet
+      } else {
+        setSummaryError('Failed to load summary');
+      }
+    }
+  };
+
+  const handleGenerateSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const data = await apiService.generateSummary(record.id);
+      setAiSummary(data);
+    } catch (err) {
+      setSummaryError(err.response?.data?.detail || 'Failed to generate summary. Is Ollama running?');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
   
   // Local edit states
   const [category, setCategory] = useState(record.category);
@@ -166,6 +205,17 @@ export default function RecordDetailModal({ record, onClose, onUpdate }) {
                 }`}
               >
                 Raw Extracted Text
+              </button>
+              <button
+                onClick={() => setActiveTab('ai-summary')}
+                className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'ai-summary' 
+                    ? 'bg-primary-500 text-white' 
+                    : 'text-slate-400 hover:bg-slate-800/40 hover:text-slate-200'
+                }`}
+              >
+                <Sparkles className="h-3 w-3" />
+                AI Summary
               </button>
             </div>
 
@@ -400,6 +450,128 @@ export default function RecordDetailModal({ record, onClose, onUpdate }) {
                 <div className="flex-1 bg-slate-950 p-4 border border-white/5 rounded-xl overflow-auto text-xs font-mono text-slate-300 leading-relaxed whitespace-pre-wrap max-h-[360px]">
                   {record.raw_text || "No raw text content extracted for this record."}
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'ai-summary' && (
+              <div className="ai-summary">
+                {summaryLoading ? (
+                  <div className="ai-summary-loading">
+                    <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'hsl(215,90%,60%)' }} />
+                    <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '12px' }}>Analyzing document with AI...</p>
+                    <p style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>This may take 15-30 seconds</p>
+                  </div>
+                ) : summaryError ? (
+                  <div className="ai-summary-error">
+                    <p style={{ color: '#f87171', fontSize: '12px', marginBottom: '12px' }}>{summaryError}</p>
+                    <button onClick={handleGenerateSummary} className="ai-generate-btn">
+                      Try Again
+                    </button>
+                  </div>
+                ) : !aiSummary ? (
+                  <div className="ai-summary-empty">
+                    <Sparkles className="h-10 w-10" style={{ color: '#334155' }} />
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginTop: '12px' }}>
+                      No AI summary generated yet
+                    </p>
+                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', maxWidth: '300px', textAlign: 'center' }}>
+                      Generate an AI-powered summary to quickly understand key findings, abnormal results, and recommendations.
+                    </p>
+                    <button onClick={handleGenerateSummary} className="ai-generate-btn" style={{ marginTop: '16px' }}>
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Generate AI Summary
+                    </button>
+                  </div>
+                ) : (
+                  <div className="ai-summary-content">
+                    {/* Overview */}
+                    <div className="ai-summary-section">
+                      <h4 className="ai-summary-title">Overview</h4>
+                      <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.7 }}>
+                        {aiSummary.summary_text}
+                      </p>
+                    </div>
+
+                    {/* Key Findings */}
+                    {aiSummary.key_findings?.length > 0 && (
+                      <div className="ai-summary-section">
+                        <h4 className="ai-summary-title">Key Findings</h4>
+                        <ul className="ai-summary-list">
+                          {aiSummary.key_findings.map((f, i) => (
+                            <li key={i}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Abnormal Results */}
+                    {aiSummary.abnormal_results?.length > 0 && (
+                      <div className="ai-summary-section">
+                        <h4 className="ai-summary-title">Abnormal Results</h4>
+                        <div className="ai-abnormal-grid">
+                          {aiSummary.abnormal_results.map((r, i) => (
+                            <div key={i} className="ai-abnormal-card">
+                              <span className="ai-abnormal-metric">{r.metric}</span>
+                              <span className="ai-abnormal-value">{r.value}</span>
+                              <span className={`ai-abnormal-status ai-abnormal-status--${(r.status || '').toLowerCase()}`}>
+                                {r.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Medications */}
+                    {aiSummary.medications?.length > 0 && (
+                      <div className="ai-summary-section">
+                        <h4 className="ai-summary-title">Medications</h4>
+                        <table className="ai-med-table">
+                          <thead>
+                            <tr>
+                              <th>Medication</th>
+                              <th>Dosage</th>
+                              <th>Frequency</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {aiSummary.medications.map((m, i) => (
+                              <tr key={i}>
+                                <td>{m.name}</td>
+                                <td>{m.dosage || '—'}</td>
+                                <td>{m.frequency || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Follow-ups */}
+                    {aiSummary.follow_ups?.length > 0 && (
+                      <div className="ai-summary-section">
+                        <h4 className="ai-summary-title">Recommended Follow-ups</h4>
+                        <ul className="ai-summary-list">
+                          {aiSummary.follow_ups.map((f, i) => (
+                            <li key={i}>{f}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Regenerate + Attribution */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <button onClick={handleGenerateSummary} className="ai-regen-btn">
+                        <RefreshCw className="h-3 w-3" />
+                        Regenerate
+                      </button>
+                      <span className="ai-attribution">
+                        <Sparkles className="h-3 w-3" />
+                        Generated by {aiSummary.model_used}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
